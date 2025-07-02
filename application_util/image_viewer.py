@@ -283,22 +283,20 @@ class ImageViewer(object):
         self._video_writer = None
 
     def run(self, update_fun=None):
-        """Start the image viewer.
-
-        This method blocks until the user requests to close the window.
-
-        Parameters
-        ----------
-        update_fun : Optional[Callable[] -> None]
-            An optional callable that is invoked at each frame. May be used
-            to play an animation/a video sequence.
-
+        """
+        Start the image viewer, modified to save images instead of showing GUI.
         """
         if update_fun is not None:
             self._user_fun = update_fun
 
         self._terminate, is_paused = False, False
-        # print("ImageViewer is paused, press space to start.")
+        frame_idx = 0   # ✅ 新增：frame index，用來命名輸出的圖片
+
+        import os
+        os.makedirs("output_frames", exist_ok=True)  # ✅ 新增：建立資料夾
+
+        print("ImageViewer running in headless mode, saving frames to ./output_frames/")
+
         while not self._terminate:
             t0 = time.time()
             if not is_paused:
@@ -306,31 +304,26 @@ class ImageViewer(object):
                 if self._video_writer is not None:
                     self._video_writer.write(
                         cv2.resize(self.image, self._window_shape))
-            t1 = time.time()
-            remaining_time = max(1, int(self._update_ms - 1e3*(t1-t0)))
-            cv2.imshow(
-                self._caption, cv2.resize(self.image, self._window_shape[:2]))
-            key = cv2.waitKey(remaining_time)
-            if key & 255 == 27:  # ESC
-                print("terminating")
-                self._terminate = True
-            elif key & 255 == 32:  # ' '
-                print("toggeling pause: " + str(not is_paused))
-                is_paused = not is_paused
-            elif key & 255 == 115:  # 's'
-                print("stepping")
-                self._terminate = not self._user_fun()
-                is_paused = True
+                # ✅ 新增：每個 frame 輸出成檔案
+                filename = f"output_frames/frame_{frame_idx:05d}.jpg"
+                resized = cv2.resize(self.image, self._window_shape[:2])
+                cv2.imwrite(filename, resized)
+                frame_idx += 1
 
-        # Due to a bug in OpenCV we must call imshow after destroying the
-        # window. This will make the window appear again as soon as waitKey
-        # is called.
-        #
-        # see https://github.com/Itseez/opencv/issues/4535
-        self.image[:] = 0
-        cv2.destroyWindow(self._caption)
-        cv2.waitKey(1)
-        cv2.imshow(self._caption, self.image)
+            t1 = time.time()
+            remaining_time = max(1, int(self._update_ms - 1e3*(t1 - t0)))
+            # ❌ 移除 cv2.imshow 和 waitKey
+            # cv2.imshow(...)
+            # key = cv2.waitKey(remaining_time)
+
+            # 改用 sleep 模擬原本更新間隔
+            time.sleep(remaining_time / 1000.0)
+
+        if self._video_writer is not None:
+            self._video_writer.release()
+
+        print("Viewer stopped, all frames saved.")
+
 
     def stop(self):
         """Stop the control loop.
