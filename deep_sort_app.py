@@ -201,6 +201,7 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
     # Run tracker.
     if display:
         visualizer = visualization.Visualization(seq_info, update_ms=5)
+        visualizer.viewer.enable_videowriter("output_video.avi")
     else:
         visualizer = visualization.NoVisualization(seq_info)
     visualizer.run(frame_callback)
